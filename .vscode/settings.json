@@ -1,0 +1,9 @@
+{ //该文件在vscode打开的顶级目录才生效
+  "java.project.sourcePath": "src", //源代码路径
+  "java.project.outputPath": "bin", //输出class文件路径
+  "java.project.referencedLibraries": [ //
+    "lib/*.jar", //添加相对路径
+    "/home/gtc/Desktop/GitHub/FuzzyWeka/lib/weka-src.jar", //添加绝对路径
+    "/home/gtc/Desktop/GitHub/FuzzyWeka/lib/weka.jar"
+  ]
+}
