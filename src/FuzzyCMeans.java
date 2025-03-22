@@ -11,7 +11,8 @@ import java.util.Random;
  * 实现贝兹代克的模糊C均值算法（Fuzzy C-Means, FCM）。该算法基于数据点的隶属度分配聚类，
  * 属于软聚类方法，与传统的K-means算法不同。
  * 
- * 贝兹代克，J.C., Ehrlich, R., & Full, W. (1984). FCM: The fuzzy c-means clustering algorithm.
+ * 贝兹代克，J.C., Ehrlich, R., & Full, W. (1984). FCM: The fuzzy c-means clustering
+ * algorithm.
  * Computers & Geosciences, 10(2 - 3), 191 - 203.
  * 
  * @author Eva Gibaja
@@ -31,24 +32,25 @@ public class FuzzyCMeans extends RandomizableClusterer implements weka.clusterer
 
   // ================== 数据结构 ==================
   /** 聚类中心矩阵 [c][nDimensiones]，存储每个簇中心点的各维度值 */
-  protected double V[][];  
+  protected double V[][];
   /** 隶属度矩阵 [c][nInstancias]，U[i][j]表示实例j属于簇i的隶属度 */
-  protected double U[][]; 
+  protected double U[][];
   /** 实例数量 */
   protected int nInstancias;
   /** 属性维度数量 */
   protected int nDimensiones;
   /** 数据集实例 */
   protected Instances dataset;
-  
+
   /** 性能监控：记录各方法累计耗时（单位：纳秒） */
   private Map<String, Long> totalTimeMap = new HashMap<>();
   private Map<String, Integer> callCountMap = new HashMap<>();
 
   /**
    * 构造函数
-   * @param m 模糊指数，建议值为 2.0
-   * @param c 聚类数量，需要根据数据的特性来选择
+   * 
+   * @param m       模糊指数，建议值为 2.0
+   * @param c       聚类数量，需要根据数据的特性来选择
    * @param epsilon 收敛阈值，通常设为 0.001
    */
   public FuzzyCMeans(double m, int c, double epsilon) {
@@ -80,6 +82,15 @@ public class FuzzyCMeans extends RandomizableClusterer implements weka.clusterer
 
     inicializarV(); // 随机初始化聚类中心
     actualizarU(); // 计算初始隶属度
+    // 利用函数imprimirMatriz分别打印V、U矩阵
+    // 打印聚类中心矩阵 V
+    // System.out.println("聚类中心矩阵 V:");
+    // imprimirMatriz(V, c, nDimensiones);
+
+    // // 打印隶属度矩阵 U
+    // System.out.println("隶属度矩阵 U:");
+    // imprimirMatriz(U, c, nInstancias);
+
     // [迭代优化阶段]
     int nIteraciones = 1;
     do {
@@ -93,8 +104,14 @@ public class FuzzyCMeans extends RandomizableClusterer implements weka.clusterer
       actualizarU();
 
       // 计算两次迭代的隶属度差异
+      // error值为0？？？？？？为什么？？？？
       error = NormaU(U, aux);
 
+      // 新增误差输出
+      System.out.printf("迭代 %d | 当前误差: %.6f\n", nIteraciones, error);
+      // System.out.printf("迭代 %d | V[0][0]=%.4f | U[0][0]=%.4f | 误差: %.6f\n", 
+      //     nIteraciones, V[0][0], U[0][0], error);
+      
       nIteraciones++;
     } while (nIteraciones <= maxIteraciones && error > epsilon); // 收敛条件
     long endTime = System.nanoTime();
@@ -108,7 +125,14 @@ public class FuzzyCMeans extends RandomizableClusterer implements weka.clusterer
       long totalTime = entry.getValue();
       int callCount = callCountMap.get(functionName);
       double averageTime = (double) totalTime / (callCount * 1_000_000); // 纳秒转为毫秒
-      System.out.println(functionName + " average time: " + averageTime + " ms");
+      // 修改后的输出逻辑
+      if (functionName == "buildClusterer") {
+        double averageIN = averageTime / (nIteraciones-1);
+        System.out.printf("运行总耗时：%.4fms，迭代%d次，平均迭代耗时：%.4fms\n", averageTime, nIteraciones-1, averageIN);
+      } else {
+        System.out.printf("%-20s | 调用次数: %-6d | 平均耗时: %.4f ms\n",
+            functionName, callCount, averageTime);
+      }
     }
   }
 
@@ -191,7 +215,7 @@ public class FuzzyCMeans extends RandomizableClusterer implements weka.clusterer
    * 计算实例到指定簇的距离
    * 
    * @param clusterIndex 簇的索引
-   * @param instancia 待计算的实例
+   * @param instancia    待计算的实例
    * @return 实例到指定簇的距离
    */
   protected double distancia(int clusterIndex, Instance instancia) {
@@ -229,20 +253,27 @@ public class FuzzyCMeans extends RandomizableClusterer implements weka.clusterer
    * @return 隶属度分布
    */
   protected double[] evaluarInstancia(Instance instancia) {
-    long startTime = System.nanoTime();
-    double[] u = new double[c];
-
-    // 遍历每个簇
-    for (int i = 0; i < c; i++) {
-      double suma = 0;
-      for (int j = 0; j < c; j++)
-        if (distancia(j, instancia) != 0)
-          suma += Math.pow(distancia(i, instancia) / distancia(j, instancia), 2.0 / (m - 1)); // 计算隶属度
-      u[i] = 1 / suma; // 更新隶属度
-    }
-    long endTime = System.nanoTime();
-    recordTime("evaluarInstancia", endTime - startTime);
-    return u;
+      long startTime = System.nanoTime();
+      double[] u = new double[c];
+      
+      // 预计算所有距离并添加极小值保护
+      double[] d = new double[c];
+      for(int k=0; k<c; k++){
+          d[k] = Math.max(distancia(k, instancia), 1e-10);
+      }
+  
+      for (int i = 0; i < c; i++) {
+          double suma = 0;
+          for (int j = 0; j < c; j++) {
+              // 使用预计算的距离值，确保分母不为零
+              suma += Math.pow(d[i] / d[j], 2.0 / (m - 1.0));
+          }
+          u[i] = 1.0 / suma;
+      }
+      
+      long endTime = System.nanoTime();
+      recordTime("evaluarInstancia", endTime - startTime);
+      return u;
   }
 
   /**
@@ -256,25 +287,25 @@ public class FuzzyCMeans extends RandomizableClusterer implements weka.clusterer
 
     // 遍历每个聚类中心（共c个）
     for (int i = 0; i < c; i++) {
-        // 随机选择一个数据实例作为初始聚类中心
-        int index = rand.nextInt(nInstancias);
-        // 遍历所有数据维度（属性）
-        for (int j = 0; j < nDimensiones; j++) {
-            // 跳过缺失值（Weka数据集特性处理）
-            if (!dataset.instance(index).isMissing(j))
-                // 将选定实例的属性值赋给聚类中心
-                V[i][j] = dataset.instance(index).value(j);
-        }
+      // 随机选择一个数据实例作为初始聚类中心
+      int index = rand.nextInt(nInstancias);
+      // 遍历所有数据维度（属性）
+      for (int j = 0; j < nDimensiones; j++) {
+        // 跳过缺失值（Weka数据集特性处理）
+        if (!dataset.instance(index).isMissing(j))
+          // 将选定实例的属性值赋给聚类中心
+          V[i][j] = dataset.instance(index).value(j);
+      }
     }
     // 记录方法执行时间
     long endTime = System.nanoTime();
     recordTime("inicializarV", endTime - startTime);
-}
+  }
 
   /**
    * 计算两次隶属度矩阵的差异
    * 
-   * @param U 当前隶属度矩阵
+   * @param U     当前隶属度矩阵
    * @param U_t_1 上一轮隶属度矩阵
    * @return 最大差异
    */
@@ -314,7 +345,7 @@ public class FuzzyCMeans extends RandomizableClusterer implements weka.clusterer
   /**
    * 打印矩阵
    * 
-   * @param M 矩阵
+   * @param M    矩阵
    * @param nfil 矩阵的行数
    * @param ncol 矩阵的列数
    */
