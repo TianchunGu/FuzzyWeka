@@ -27,7 +27,7 @@ public class FuzzyCMeans extends RandomizableClusterer implements weka.clusterer
   /** 收敛阈值，当隶属度矩阵变化小于该值时终止迭代 */
   protected double epsilon;
   /** 最大迭代次数，防止算法长时间无法收敛 */
-  protected int maxIteraciones = 100;
+  protected int maxIteraciones = 200;
 
   // ================== 数据结构 ==================
   /** 聚类中心矩阵 [c][nDimensiones]，存储每个簇中心点的各维度值 */
@@ -249,19 +249,27 @@ public class FuzzyCMeans extends RandomizableClusterer implements weka.clusterer
    * 随机初始化聚类中心
    */
   protected void inicializarV() {
+    // 初始化计时器，用于性能监控
     long startTime = System.nanoTime();
+    // 使用Weka基类的随机种子初始化随机数生成器
     Random rand = new Random(getSeed());
 
+    // 遍历每个聚类中心（共c个）
     for (int i = 0; i < c; i++) {
-      int index = rand.nextInt(nInstancias); // 随机选择一个实例
-      for (int j = 0; j < nDimensiones; j++) {
-        if (!dataset.instance(index).isMissing(j))
-          V[i][j] = dataset.instance(index).value(j); // 初始化聚类中心
-      }
+        // 随机选择一个数据实例作为初始聚类中心
+        int index = rand.nextInt(nInstancias);
+        // 遍历所有数据维度（属性）
+        for (int j = 0; j < nDimensiones; j++) {
+            // 跳过缺失值（Weka数据集特性处理）
+            if (!dataset.instance(index).isMissing(j))
+                // 将选定实例的属性值赋给聚类中心
+                V[i][j] = dataset.instance(index).value(j);
+        }
     }
+    // 记录方法执行时间
     long endTime = System.nanoTime();
     recordTime("inicializarV", endTime - startTime);
-  }
+}
 
   /**
    * 计算两次隶属度矩阵的差异
