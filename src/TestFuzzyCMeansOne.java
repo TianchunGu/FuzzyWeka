@@ -2,6 +2,9 @@ import weka.clusterers.ClusterEvaluation;
 import weka.core.Instances;
 import weka.core.converters.CSVLoader;
 import java.io.File;
+// 在文件顶部添加以下导入
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.Remove;
@@ -29,6 +32,19 @@ public class TestFuzzyCMeansOne {
       FuzzyCMeans fcm = new FuzzyCMeans(m, c, e);
       fcm.setSeed(10);
       fcm.buildClusterer(data);
+      
+      // 新增文件输出代码
+      try (BufferedWriter writer = new BufferedWriter(new FileWriter("output.csv"))) {
+          writer.write("InstanceID,Cluster\n");  // 写入CSV表头
+          for (int i = 0; i < data.numInstances(); i++) {
+              int cluster = fcm.clusterInstance(data.instance(i)) + 1; // 簇号从1开始
+              writer.write(String.format("%d,%d\n", i+1, cluster));
+          }
+          System.out.println("\n聚类结果已保存至 output.csv");
+      } catch (IOException ex) {
+          System.err.println("文件写入失败: " + ex.getMessage());
+      }
+
     } catch (Exception e) {
       System.err.println("数据加载失败: " + e.getMessage());
       e.printStackTrace();
